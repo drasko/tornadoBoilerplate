@@ -4,15 +4,12 @@ import tornado.ioloop
 import tornado.web
 import tornado.options
  
-import sockjs.tornado
-
-
 class IndexHandler(tornado.web.RequestHandler):
     """Regular HTTP handler to serve the chatroom page"""
     def get(self):
         self.render('index.html')
 
-class TestHandler(sockjs.tornado.SockJSConnection): 
+class TestHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         print 'new connection'
         self.write_message("Hello World")
@@ -28,24 +25,24 @@ if __name__ == "__main__":
     import logging
     logging.getLogger().setLevel(logging.DEBUG)
 
-    tornado.options.define("port", default=8081, type=int)
+    tornado.options.define("port", default=8080, type=int)
 
-    # 1. Create weio router
-    TestRouter = sockjs.tornado.SockJSRouter(TestHandler, '/test')
+    # 1. Create Tornado application
+    app = tornado.web.Application([
+                (r'/test', TestHandler), 
+                (r"/", IndexHandler),
+                (r"/(.*)", tornado.web.StaticFileHandler,
+	 				    {"path": ".", "default_filename": "index.html"})
+            ],
+            debug=True
+    )
 
-    # 2. Create Tornado application
-    app = tornado.web.Application(
-            list(TestRouter.urls) + 
-            [(r"/", IndexHandler), (r"/(.*)", tornado.web.StaticFileHandler,
-	 				{"path": ".", "default_filename": "index.html"})],
-            debug=True)
 
-
-    # 3. Make Tornado app listen on port 8080
-    logging.info(" [*] Listening on 0.0.0.0:8081")
+    # 2. Make Tornado app listen on port 8080
+    logging.info(" [*] Listening on 0.0.0.0:8080")
 
     http_server = tornado.httpserver.HTTPServer(app)
     http_server.listen(tornado.options.options.port)
 
-    # 4. Start IOLoop
+    # 3. Start IOLoop
     tornado.ioloop.IOLoop.instance().start()
